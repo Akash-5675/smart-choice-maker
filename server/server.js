@@ -1,8 +1,10 @@
 const express = require("express")
 const mongoose = require("mongoose")
 const cors = require("cors")
+const authRoutes = require("./routes/authRoutes")
 const criteriaRoutes = require("./routes/criteriaRoutes")
 const decisionRoutes = require("./routes/decisionRoutes")
+const mlRoutes = require("./routes/mlRoutes")
 const optionRoutes = require("./routes/optionRoutes")
 const ratingRoutes = require("./routes/ratingRoutes")
 
@@ -17,8 +19,10 @@ mongoose.connection.once("open", () => {
   console.log("MongoDB connected")
 })
 
+app.use("/auth", authRoutes)
 app.use("/decisions", decisionRoutes)
 app.use("/criteria", criteriaRoutes)
+app.use("/ml", mlRoutes)
 app.use("/options", optionRoutes)
 app.use("/ratings", ratingRoutes)
 app.listen(5000, () => {

@@ -1,97 +1,136 @@
 import React, { useEffect, useState } from "react"
-import axios from "axios"
+import { api } from "../api"
+import { RATING_GUIDE, SCALE_MAX, SCALE_MIN } from "../constants"
 
-function DecisionMatrix({ decisionId }) {
-
+function DecisionMatrix({ decisionId, refreshKey, onRatingSaved }) {
   const [criteria, setCriteria] = useState([])
   const [options, setOptions] = useState([])
+  const [ratings, setRatings] = useState({})
+  const [statusMessage, setStatusMessage] = useState("")
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchData()
-  }, [])
+    const loadMatrix = async () => {
+      try {
+        setLoading(true)
+        const [criteriaRes, optionRes, ratingsRes] = await Promise.all([
+          api.get(`/criteria/${decisionId}`),
+          api.get(`/options/${decisionId}`),
+          api.get(`/ratings/${decisionId}`)
+        ])
 
-  const fetchData = async () => {
+        const existingRatings = {}
 
-    const criteriaRes = await axios.get(
-      `http://localhost:5000/criteria/${decisionId}`
-    )
+        ratingsRes.data.forEach((rating) => {
+          existingRatings[`${rating.criteriaId}-${rating.optionId}`] = rating.value
+        })
 
-    const optionRes = await axios.get(
-      `http://localhost:5000/options/${decisionId}`
-    )
+        setCriteria(criteriaRes.data)
+        setOptions(optionRes.data)
+        setRatings(existingRatings)
+      } catch (requestError) {
+        setStatusMessage(
+          requestError.response?.data?.message || "Unable to load the decision matrix."
+        )
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    setCriteria(criteriaRes.data)
-    setOptions(optionRes.data)
-
-  }
+    loadMatrix()
+  }, [decisionId, refreshKey])
 
   const saveRating = async (criteriaId, optionId, value) => {
 
-    await axios.post("http://localhost:5000/ratings/create", {
+    const numericValue = Number(value)
+
+    if (
+      Number.isNaN(numericValue) ||
+      numericValue < SCALE_MIN ||
+      numericValue > SCALE_MAX
+    ) {
+      setStatusMessage(`Ratings must stay between ${SCALE_MIN} and ${SCALE_MAX}.`)
+      return
+    }
+
+    await api.post("/ratings/create", {
       decisionId,
       criteriaId,
       optionId,
-      value
+      value: numericValue
     })
 
+    setRatings((current) => ({
+      ...current,
+      [`${criteriaId}-${optionId}`]: numericValue
+    }))
+    setStatusMessage(`Saved rating ${numericValue}.`)
+    onRatingSaved?.()
   }
 
   return (
+    <div className="stack-form">
+      <div>
+        <h2>Decision matrix</h2>
+        <p>
+          Rating guide: {RATING_GUIDE.map((item) => `${item.value} = ${item.label}`).join(", ")}
+        </p>
+        <p>Final score = sum of each rating multiplied by its criteria weight.</p>
+      </div>
 
-    <div>
+      {loading ? (
+        <div className="status-card">Loading matrix data...</div>
+      ) : criteria.length === 0 || options.length === 0 ? (
+        <div className="status-card">
+          Add at least one criterion and one option to start scoring the matrix.
+        </div>
+      ) : (
+        <div className="table-wrap">
+          <table className="decision-table">
+            <thead>
+              <tr>
+                <th>Criteria</th>
+                {options.map((option) => (
+                  <th key={option._id}>{option.name}</th>
+                ))}
+              </tr>
+            </thead>
 
-      <h2>Decision Matrix</h2>
+            <tbody>
+              {criteria.map((c) => (
+                <tr key={c._id}>
+                  <td>
+                    <strong>{c.name}</strong>
+                    <small>Weight: {c.weight}</small>
+                  </td>
 
-      <table border="1" cellPadding="10">
-
-        <thead>
-
-          <tr>
-            <th>Criteria</th>
-
-            {options.map(option => (
-              <th key={option._id}>{option.name}</th>
-            ))}
-
-          </tr>
-
-        </thead>
-
-        <tbody>
-
-          {criteria.map(c => (
-
-            <tr key={c._id}>
-
-              <td>{c.name}</td>
-
-              {options.map(o => (
-
-                <td key={o._id}>
-
-                  <input
-                    type="number"
-                    onBlur={(e) =>
-                      saveRating(c._id, o._id, e.target.value)
-                    }
-                  />
-
-                </td>
-
+                  {options.map((o) => (
+                    <td key={o._id}>
+                      <input
+                        type="number"
+                        min={SCALE_MIN}
+                        max={SCALE_MAX}
+                        value={ratings[`${c._id}-${o._id}`] ?? ""}
+                        onChange={(e) =>
+                          setRatings((current) => ({
+                            ...current,
+                            [`${c._id}-${o._id}`]: e.target.value
+                          }))
+                        }
+                        onBlur={(e) => saveRating(c._id, o._id, e.target.value)}
+                      />
+                    </td>
+                  ))}
+                </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
-            </tr>
-
-          ))}
-
-        </tbody>
-
-      </table>
-
+      {statusMessage && <p className="helper-text">{statusMessage}</p>}
     </div>
-
   )
-
 }
 
 export default DecisionMatrix

@@ -1,84 +1,182 @@
 import React, { useEffect, useState } from "react"
-import axios from "axios"
+import { api } from "../api"
 
-function Results({ decisionId }) {
-
+function Results({ decisionId, refreshKey }) {
   const [criteria, setCriteria] = useState([])
   const [options, setOptions] = useState([])
-  const [ratings, setRatings] = useState([])
-  const [scores, setScores] = useState({})
+  const [scoreRows, setScoreRows] = useState([])
+  const [report, setReport] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
+  const [error, setError] = useState("")
 
   useEffect(() => {
-    loadData()
-  }, [])
+    const loadResults = async () => {
+      try {
+        setLoading(true)
+        const [c, o, r, reportResponse] = await Promise.all([
+          api.get(`/criteria/${decisionId}`),
+          api.get(`/options/${decisionId}`),
+          api.get(`/ratings/${decisionId}`),
+          api.get(`/decisions/${decisionId}/report`)
+        ])
 
-  const loadData = async () => {
+        setCriteria(c.data)
+        setOptions(o.data)
+        setReport(reportResponse.data)
+        calculateScores(c.data, o.data, r.data)
+        setError("")
+      } catch (requestError) {
+        setError(requestError.response?.data?.message || "Unable to load the results.")
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    const c = await axios.get(`http://localhost:5000/criteria/${decisionId}`)
-    const o = await axios.get(`http://localhost:5000/options/${decisionId}`)
-    const r = await axios.get(`http://localhost:5000/ratings/${decisionId}`)
-
-    setCriteria(c.data)
-    setOptions(o.data)
-    setRatings(r.data)
-
-    calculateScores(c.data, o.data, r.data)
-  }
+    loadResults()
+  }, [decisionId, refreshKey])
 
   const calculateScores = (criteria, options, ratings) => {
 
-    let result = {}
+    const result = options.map((option) => {
+      const breakdown = criteria.map((criterion) => {
+        const rating = ratings.find(
+          (entry) =>
+            entry.optionId === option._id && entry.criteriaId === criterion._id
+        )
 
-    options.forEach(option => {
+        const ratingValue = rating?.value || 0
+        const contribution = ratingValue * criterion.weight
 
-      let score = 0
-
-      ratings.forEach(r => {
-
-        if (r.optionId === option._id) {
-
-          const c = criteria.find(cr => cr._id === r.criteriaId)
-
-          if (c) {
-            score += r.value * c.weight
-          }
-
+        return {
+          criteriaName: criterion.name,
+          weight: criterion.weight,
+          rating: ratingValue,
+          contribution
         }
-
       })
 
-      result[option.name] = score
+      const total = breakdown.reduce(
+        (sum, entry) => sum + entry.contribution,
+        0
+      )
 
-    })
+      return {
+        name: option.name,
+        total,
+        breakdown
+      }
+    }).sort((first, second) => second.total - first.total)
 
-    setScores(result)
+    setScoreRows(result)
 
   }
 
-  const bestOption = Object.keys(scores).reduce((a,b) =>
-    scores[a] > scores[b] ? a : b
-  , "")
+  const bestOption = scoreRows[0]?.name || ""
+
+  const downloadReport = async () => {
+    try {
+      setDownloading(true)
+      const response = await api.get(`/decisions/${decisionId}/report/download`, {
+        responseType: "blob"
+      })
+      const fileUrl = window.URL.createObjectURL(new Blob([response.data], { type: "application/pdf" }))
+      const link = document.createElement("a")
+      link.href = fileUrl
+      link.download = `${report?.decision?.title || "decision-report"}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(fileUrl)
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to download the PDF report.")
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
+    <div className="stack-form">
+      <div className="results-header">
+        <div>
+          <h2>Results and report</h2>
+          <p>See the weighted ranking and download the generated PDF explanation.</p>
+        </div>
 
-    <div>
+        <button type="button" className="button button--primary" onClick={downloadReport} disabled={downloading || loading}>
+          {downloading ? "Preparing PDF..." : "Download PDF Report"}
+        </button>
+      </div>
 
-      <h2>Results</h2>
+      {error && <div className="alert alert--error">{error}</div>}
 
-      {Object.keys(scores).map(name => (
+      {loading ? (
+        <div className="status-card">Calculating results...</div>
+      ) : criteria.length === 0 || options.length === 0 ? (
+        <div className="status-card">Add criteria and options to see results.</div>
+      ) : (
+        <>
+          <div className="card-grid">
+            {scoreRows.map((row) => (
+              <article key={row.name} className="result-card">
+                <div className="result-card__header">
+                  <h3>{row.name}</h3>
+                  <span className="score-badge">{row.total}</span>
+                </div>
+                {row.breakdown.map((entry) => (
+                  <p key={`${row.name}-${entry.criteriaName}`}>
+                    {entry.criteriaName}: {entry.rating} x {entry.weight} = {entry.contribution}
+                  </p>
+                ))}
+              </article>
+            ))}
+          </div>
 
-        <p key={name}>
-          {name} : {scores[name]}
-        </p>
+          <div className="summary-banner">
+            <strong>Best Option:</strong> {bestOption || "Not available yet"}
+          </div>
 
-      ))}
+          {report && (
+            <div className="report-layout">
+              <article className="report-card">
+                <h3>Generated explanation</h3>
+                {report.narrative.map((paragraph) => (
+                  <p key={paragraph}>{paragraph}</p>
+                ))}
+              </article>
 
-      <h3>Best Option: {bestOption}</h3>
+              <article className="report-card">
+                <h3>Key facts</h3>
+                <ul className="report-list">
+                  <li>Criteria compared: {report.facts.criteriaCount}</li>
+                  <li>Options compared: {report.facts.optionsCount}</li>
+                  <li>
+                    Ratings completed: {report.facts.ratingsCompleted} / {report.facts.ratingSlots}
+                  </li>
+                  <li>Completion rate: {report.facts.completionRate}%</li>
+                  {report.facts.highestWeightedCriterion && (
+                    <li>
+                      Highest weighted criterion: {report.facts.highestWeightedCriterion.name} (
+                      {report.facts.highestWeightedCriterion.weight})
+                    </li>
+                  )}
+                </ul>
+              </article>
 
+              <article className="report-card">
+                <h3>How the final decision was reached</h3>
+                <ul className="report-list">
+                  {report.insights.map((insight) => (
+                    <li key={insight}>{insight}</li>
+                  ))}
+                </ul>
+              </article>
+            </div>
+          )}
+        </>
+      )}
     </div>
-
   )
-
 }
 
 export default Results
