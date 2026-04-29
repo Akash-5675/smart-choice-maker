@@ -1,62 +1,101 @@
 import React, { useEffect, useState } from "react"
-import { useParams, Link } from "react-router-dom"
-import axios from "axios"
+import { useParams, Link, useLocation } from "react-router-dom"
 
 import AddCriteria from "./AddCriteria"
 import AddOption from "./AddOption"
 import DecisionMatrix from "./DecisionMatrix"
 import Results from "./Results"
+import { api } from "../api"
 
 function DecisionWorkspace() {
-
   const { id } = useParams()
+  const { state } = useLocation()
 
-  const [decision,setDecision] = useState(null)
+  const [decision, setDecision] = useState(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const [error, setError] = useState("")
+  const [suggestedCriteria, setSuggestedCriteria] = useState(
+    state?.mlSuggestions || []
+  )
 
-  useEffect(()=>{
-    fetchDecision()
-  },[])
-
-  const fetchDecision = async () => {
-
-    const res = await axios.get("http://localhost:5000/decisions")
-
-    const found = res.data.find(d => d._id === id)
-
-    if(found){
-      setDecision(found)
+  useEffect(() => {
+    const loadDecision = async () => {
+      try {
+        const res = await api.get(`/decisions/${id}`)
+        setDecision(res.data)
+        setError("")
+      } catch (requestError) {
+        setError(requestError.response?.data?.message || "Unable to load this decision.")
+      }
     }
 
+    loadDecision()
+  }, [id])
+
+  useEffect(() => {
+    const loadSuggestions = async () => {
+      if (!decision?.title || suggestedCriteria.length > 0) {
+        return
+      }
+
+      try {
+        const response = await api.post("/ml/recommend-criteria", {
+          decision: decision.title
+        })
+
+        setSuggestedCriteria(response.data.criteria || [])
+      } catch (error) {
+        setSuggestedCriteria([])
+      }
+    }
+
+    loadSuggestions()
+  }, [decision, suggestedCriteria.length])
+
+  const handleDataChanged = () => {
+    setRefreshKey((current) => current + 1)
   }
 
   return (
+    <section className="stack-page">
+      <div className="section-header">
+        <Link to="/dashboard" className="text-link">
+          Back to Dashboard
+        </Link>
+        <p className="eyebrow">Decision workspace</p>
+        <h1>{decision ? decision.title : "Loading decision..."}</h1>
+        {decision?.description && <p>{decision.description}</p>}
+      </div>
 
-    <div style={{padding:"20px"}}>
+      {error && <div className="alert alert--error">{error}</div>}
 
-      <Link to="/">← Back to Dashboard</Link>
+      <div className="workspace-grid">
+        <div className="panel">
+          <AddCriteria
+            decisionId={id}
+            suggestedCriteria={suggestedCriteria}
+            onCriteriaAdded={handleDataChanged}
+          />
+        </div>
 
-      <h2>
-        Decision: {decision ? decision.title : "Loading..."}
-      </h2>
+        <div className="panel">
+          <AddOption decisionId={id} onOptionAdded={handleDataChanged} />
+        </div>
+      </div>
 
-      <AddCriteria decisionId={id}/>
+      <div className="panel">
+        <DecisionMatrix
+          decisionId={id}
+          refreshKey={refreshKey}
+          onRatingSaved={handleDataChanged}
+        />
+      </div>
 
-      <hr/>
-
-      <AddOption decisionId={id}/>
-
-      <hr/>
-
-      <DecisionMatrix decisionId={id}/>
-
-      <hr/>
-
-      <Results decisionId={id}/>
-
-    </div>
-
+      <div className="panel">
+        <Results decisionId={id} refreshKey={refreshKey} />
+      </div>
+    </section>
   )
-
 }
 
 export default DecisionWorkspace

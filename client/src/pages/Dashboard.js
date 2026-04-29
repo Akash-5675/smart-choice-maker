@@ -1,54 +1,70 @@
 import React, { useEffect, useState } from "react"
-import axios from "axios"
 import { Link } from "react-router-dom"
+import { api } from "../api"
 
 function Dashboard() {
-
   const [decisions, setDecisions] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   useEffect(() => {
     fetchDecisions()
   }, [])
 
   const fetchDecisions = async () => {
-    const response = await axios.get("http://localhost:5000/decisions")
-    setDecisions(response.data)
+    try {
+      setLoading(true)
+      const response = await api.get("/decisions")
+      setDecisions(response.data)
+      setError("")
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Unable to load your decisions.")
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div style={{ padding: "20px" }}>
-
-      <h2>Your Decisions</h2>
-
-      {/* Create new decision button */}
-      <Link to="/create">
-        <button style={{marginBottom:"20px"}}>
-          Create New Decision
-        </button>
-      </Link>
-
-      {decisions.map((decision) => (
-        <div
-          key={decision._id}
-          style={{
-            border: "1px solid gray",
-            padding: "10px",
-            marginBottom: "10px"
-          }}
-        >
-
-          <h3>{decision.title}</h3>
-          <p>{decision.description}</p>
-
-          {/* open decision workspace */}
-          <Link to={`/decision/${decision._id}`}>
-            <button>Open Decision</button>
-          </Link>
-
+    <section className="stack-page">
+      <div className="section-header section-header--row">
+        <div>
+          <p className="eyebrow">Dashboard</p>
+          <h1>Your decisions</h1>
+          <p>Review saved comparisons or create a new one.</p>
         </div>
-      ))}
 
-    </div>
+        <Link to="/create" className="button button--primary">
+          Create New Decision
+        </Link>
+      </div>
+
+      {error && <div className="alert alert--error">{error}</div>}
+
+      {loading ? (
+        <div className="status-card">Loading your saved decisions...</div>
+      ) : decisions.length === 0 ? (
+        <div className="status-card">
+          <h2>No decisions yet</h2>
+          <p>Create your first decision to start comparing options.</p>
+        </div>
+      ) : (
+        <div className="card-grid">
+          {decisions.map((decision) => (
+            <article key={decision._id} className="decision-card">
+              <div>
+                <p className="decision-card__label">Saved comparison</p>
+                <h2>{decision.title}</h2>
+                <p>{decision.description || "No description added yet."}</p>
+              </div>
+
+              <Link to={`/decision/${decision._id}`} className="button button--ghost">
+                Open Decision
+              </Link>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   )
 }
 
