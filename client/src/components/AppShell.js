@@ -25,7 +25,23 @@ function AppShell() {
     <div className="app-shell">
       <header className="topbar">
         <Link to="/" className="brand-mark">
-          <span className="brand-mark__badge">SCM</span>
+          <span className="brand-mark__badge">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" style={{width:"100%",height:"100%",display:"block"}} aria-hidden="true">
+              <defs>
+                <linearGradient id="scm-a" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#f59e0b"/>
+                  <stop offset="100%" stopColor="#92400e"/>
+                </linearGradient>
+                <linearGradient id="scm-b" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stopColor="#136f63"/>
+                  <stop offset="100%" stopColor="#0d4d44"/>
+                </linearGradient>
+              </defs>
+              <path d="M32 7 L57 32 L32 57 L7 32 Z" fill="url(#scm-a)"/>
+              <path d="M32 7 L7 32 L32 32 Z" fill="url(#scm-b)" opacity="0.35"/>
+              <polyline points="18,32 27,43 47,20" fill="none" stroke="white" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </span>
           <span>
             <strong>Smart Choice Maker</strong>
             <small>Weighted decisions made clearer</small>

@@ -42,7 +42,15 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  sessions: [SessionSchema]
+  sessions: [SessionSchema],
+  resetToken: {
+    type: String,
+    default: null
+  },
+  resetTokenExpiry: {
+    type: Date,
+    default: null
+  }
 })
 
 UserSchema.statics.hashPassword = function hashPassword(password, salt) {

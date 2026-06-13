@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react"
-import { useLocation, useNavigate } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 
 import { api } from "../api"
 import { useAuth } from "../context/AuthContext"
@@ -168,6 +168,11 @@ function AuthPage() {
               >
                 Change Email
               </button>
+              {mode === "login" && (
+                <Link to="/forgot-password" className="text-link" style={{ fontSize: "0.9rem" }}>
+                  Forgot password?
+                </Link>
+              )}
             </>
           )}
         </div>

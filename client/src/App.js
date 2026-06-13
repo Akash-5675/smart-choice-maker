@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/ProtectedRoute"
 import { AuthProvider } from "./context/AuthContext"
 import AccountPage from "./pages/AccountPage"
 import AuthPage from "./pages/AuthPage"
+import ForgotPasswordPage from "./pages/ForgotPasswordPage"
 import CreateDecision from "./pages/CreateDecision"
 import Dashboard from "./pages/Dashboard"
 import DecisionWorkspace from "./pages/DecisionWorkspace"
@@ -19,6 +20,7 @@ function App() {
           <Route path="/" element={<AppShell />}>
             <Route index element={<LandingPage />} />
             <Route path="auth" element={<AuthPage />} />
+            <Route path="forgot-password" element={<ForgotPasswordPage />} />
             <Route
               path="dashboard"
               element={

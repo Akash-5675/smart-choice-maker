@@ -123,10 +123,8 @@ button {
   width: 3rem;
   height: 3rem;
   border-radius: 16px;
-  background: linear-gradient(135deg, var(--primary), #d97706);
-  color: white;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  background: #1e2d37;
+  overflow: hidden;
 }
 
 .topbar__nav {
@@ -374,6 +372,12 @@ button {
   background: rgba(180, 35, 24, 0.1);
   border: 1px solid rgba(180, 35, 24, 0.15);
   color: var(--danger);
+}
+
+.alert--success {
+  background: rgba(19, 111, 99, 0.1);
+  border: 1px solid rgba(19, 111, 99, 0.18);
+  color: var(--accent);
 }
 
 .workspace-grid,
