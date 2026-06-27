@@ -11,9 +11,9 @@ function ForgotPasswordPage() {
 
   const tokenFromUrl = searchParams.get("token") || ""
 
-  const [mode, setMode] = useState(tokenFromUrl ? "reset" : "request")
+  const [mode] = useState(tokenFromUrl ? "reset" : "request")
   const [email, setEmail] = useState("")
-  const [token, setToken] = useState(tokenFromUrl)
+  const [token] = useState(tokenFromUrl)
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [loading, setLoading] = useState(false)
